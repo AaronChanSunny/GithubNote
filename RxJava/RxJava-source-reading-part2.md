@@ -2,6 +2,8 @@
 
 ## 操作符
 
+### map
+
 从最常用的 map 操作符，剖析 RxJava 数据转换的原理：
 
 ```
@@ -66,3 +68,95 @@ public void onNext(T t) {
 > 这里要解释一下“上游”和“下游”的概念：按照我们写的代码顺序，just 在 map 的上面，Action1 在 map 的下面，数据从 just 传递到 map 再传递到 Action1，所以对于 map 来说，just 就是上游，Action1 就是下游。数据是从上游（Observable）一路传递到下游（Subscriber）的，请求则相反，从下游传递到上游。
 
 ![](Imgs/RxJava-map.png)
+
+### lift
+
+使用例子：
+
+```
+Observable
+        .just("1")
+        .lift(new Observable.Operator<Integer, String>() {
+            @Override
+            public Subscriber<? super String> call(Subscriber<? super Integer> subscriber) {
+                return new Subscriber<String>() {
+                    @Override
+                    public void onCompleted() {
+                        subscriber.onCompleted();
+                    }
+                    @Override
+                    public void onError(Throwable e) {
+                        subscriber.onError(e);
+                    }
+                    @Override
+                    public void onNext(String s) {
+                        subscriber.onNext(Integer.valueOf(s));
+                    }
+                };
+            }
+        })
+        .subscribe(System.out::println);
+```
+
+`lift` 是一个对开发者隐藏的操作符，一般不推荐直接使用。但是，在 RxJava 对外提供的操作符中，很多都是基于 lift 操作符实现的：
+
+- merge
+
+```
+// Observable.java
+public static <T> Observable<T> merge(Observable<? extends Observable<? extends T>> source) {
+    if (source.getClass() == ScalarSynchronousObservable.class) {
+        return ((ScalarSynchronousObservable<T>)source).scalarFlatMap((Func1)UtilityFunctions.identity());
+    }
+    return source.lift(OperatorMerge.<T>instance(false));    // 1
+}
+```
+
+- flatMap
+
+```
+// Observable.java
+public final <R> Observable<R> flatMap(Func1<? super T, ? extends Observable<? extends R>> func) {
+    if (getClass() == ScalarSynchronousObservable.class) {
+        return ((ScalarSynchronousObservable<T>)this).scalarFlatMap(func);
+    }
+    return merge(map(func));   // 1
+}
+```
+
+`lift` 相关源码：
+
+```
+// Observable.java
+public final <R> Observable<R> lift(final Operator<? extends R, ? super T> operator) {
+    return create(new OnSubscribeLift<T, R>(onSubscribe, operator));    // 1
+}
+
+// OnSubscribeLift.java
+@Override
+public void call(Subscriber<? super R> o) {
+    try {
+        Subscriber<? super T> st = RxJavaHooks.onObservableLift(operator).call(o);     // 2
+        try {
+            // new Subscriber created and being subscribed with so 'onStart' it
+            st.onStart();                                               // 3
+            parent.call(st);                                            // 4
+        } catch (Throwable e) {
+            // 省略异常代码
+        }
+    } catch (Throwable e) {
+       // 省略异常代码
+    }
+}
+```
+
+1. `lift` 操作符和 `map` 一样，也是创建一个新的 Observable，传进 `OnSubscribeLift`；
+2. 当 Observable 被订阅时，代码执行到位置 2，根据传进来的 Subscriber 生成一个新的 Subscriber；
+3. 这个新的 Subscriber 直接调用 onStart 方法；
+4. 用这个新的 Subscriber 对上游进行订阅操作。
+
+整体调用流程：
+
+![](Imgs/RxJava-lift.png)
+
+这里需要注意，对于上游来说，持有的是 Operator#call 生成的 Subscriber。接收到上游发出的数据之后，Operator#call 会将数据转发给最终的 Subscriber。
