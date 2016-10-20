@@ -197,3 +197,18 @@ public void onCompleted() {
 1. 调用 Subscriber#onStart 方法。这里需要注意，onStart 方法所在线程就是当前线程。也就是说，Schedules 并不会影响 onStart 所运行的线程；
 2. `SafeSubscriber` 是保证一个 `Subscriber` 遵循 [The Observable Contract](http://reactivex.io/documentation/contract.html)；
 3. 跳过 RxJavaHooks 逻辑，相当于 observable.onSubscribe#call(subscriber)。
+
+回想一下 Observable 是如何被创建的：
+
+```
+ Observable
+         .create(new Observable.OnSubscribe<String>() {
+             @Override
+             public void call(Subscriber<? super String> subscriber) {
+                 subscriber.onNext("Hello world");        // 1
+                 subscriber.onCompleted();
+             }
+         });
+```
+
+因此，当 observable.onSubscribe#call(subscriber) 被执行时，相当于就开始执行位置 1 的代码逻辑，数据就开始从被观察者发送到观察者了。
