@@ -1,8 +1,8 @@
 # RxJava 源码解读笔记（二）
 
-## 操作符
+## 1 操作符
 
-### map
+### 1.1 map
 
 从最常用的 map 操作符，剖析 RxJava 数据转换的原理：
 
@@ -69,7 +69,7 @@ public void onNext(T t) {
 
 ![](Imgs/RxJava-map.png)
 
-### lift
+### 1.2 lift
 
 使用例子：
 
