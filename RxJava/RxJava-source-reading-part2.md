@@ -65,4 +65,4 @@ public void onNext(T t) {
 
 > 这里要解释一下“上游”和“下游”的概念：按照我们写的代码顺序，just 在 map 的上面，Action1 在 map 的下面，数据从 just 传递到 map 再传递到 Action1，所以对于 map 来说，just 就是上游，Action1 就是下游。数据是从上游（Observable）一路传递到下游（Subscriber）的，请求则相反，从下游传递到上游。
 
-[](Imgs/RxJava-map.png)
+![](Imgs/RxJava-map.png)
