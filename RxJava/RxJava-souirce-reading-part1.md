@@ -204,6 +204,8 @@ public void onCompleted() {
 
 因此，当 observable.onSubscribe#call(subscriber) 被执行时，相当于就开始执行位置 1 的代码逻辑，数据就开始从被观察者发送到观察者了。
 
+![](Imgs/RxJava-subscribe.png)
+
 ## Backpressure
 
 考虑这么一种情况，Observable 数据发的太快，Subscriber 处理不过来，应该怎么办？这就是 Rxjava 引入 Backpressure 的原因。
