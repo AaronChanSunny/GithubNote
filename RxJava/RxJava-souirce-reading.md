@@ -212,3 +212,115 @@ public void onCompleted() {
 ```
 
 因此，当 observable.onSubscribe#call(subscriber) 被执行时，相当于就开始执行位置 1 的代码逻辑，数据就开始从被观察者发送到观察者了。
+
+## Backpressure
+
+考虑这么一种情况，Observable 数据发的太快，Subscriber 处理不过来，应该怎么办？这就是 Rxjava 引入 Backpressure 的原因。
+
+> 在 RxJava 1.x 中，数据都是从 Observable push 到 Subscriber 的，但要是 Observable 发得太快，Subscriber 处理不过来，该怎么办？一种办法是，把数据保存起来，但这显然可能导致内存耗尽；另一种办法是，多余的数据来了之后就丢掉，至于丢掉和保留的策略可以按需制定；还有一种办法就是让 Subscriber 向 Observable 主动请求数据，Subscriber 不请求，Observable 就不发出数据。它俩相互协调，避免出现过多的数据，而协调的桥梁，就是 Producer。
+
+### 再看 just 操作符
+
+通过前面分析可以知道，使用 just 创建 Observable，传入的是一个 JustOnSubscribe：
+
+```
+// Observable.java
+protected ScalarSynchronousObservable(final T t) {
+    super(RxJavaHooks.onCreate(new JustOnSubscribe<T>(t)));   // 1
+    this.t = t;
+}
+
+// ScalarSynchronousObservable.java
+/** The OnSubscribe callback for the Observable constructor. */
+static final class JustOnSubscribe<T> implements OnSubscribe<T> {
+    final T value;
+    JustOnSubscribe(T value) {
+        this.value = value;
+    }
+    @Override
+    public void call(Subscriber<? super T> s) {
+        s.setProducer(createProducer(s, value));              // 2
+    }
+}
+
+static <T> Producer createProducer(Subscriber<? super T> s, T v) {
+    if (STRONG_MODE) {
+        return new SingleProducer<T>(s, v);
+    }
+    return new WeakSingleProducer<T>(s, v);                   // 3
+}
+```
+
+1. 创建 JustOnSubscribe 实例；
+2. 为 JustOnSubscribe 设置一个 Producer；
+3. 创建一个 Producer。
+
+`setProducer` 源码：
+
+```
+// Subscriber.java
+public void setProducer(Producer p) {
+    long toRequest;
+    boolean passToSubscriber = false;
+    synchronized (this) {
+        toRequest = requested;
+        producer = p;
+        if (subscriber != null) {
+            // middle operator ... we pass through unless a request has been made
+            if (toRequest == NOT_SET) {
+                // we pass through to the next producer as nothing has been requested
+                passToSubscriber = true;
+            }
+        }
+    }
+    // do after releasing lock
+    if (passToSubscriber) {
+        subscriber.setProducer(producer);
+    } else {
+        // we execute the request with whatever has been requested (or Long.MAX_VALUE)
+        if (toRequest == NOT_SET) {
+            producer.request(Long.MAX_VALUE);  // 1
+        } else {
+            producer.request(toRequest);       // 2
+        }
+    }
+}
+
+// WeakSingleProducer.java
+@Override
+public void request(long n) {
+    if (once) {
+        return;
+    }
+    if (n < 0L) {
+        throw new IllegalStateException("n >= required but it was " + n);
+    }
+    if (n == 0L) {
+        return;
+    }
+    once = true;
+    Subscriber<? super T> a = actual;
+    if (a.isUnsubscribed()) {
+        return;
+    }
+    T v = value;
+    try {
+        a.onNext(v);                          // 3
+    } catch (Throwable e) {
+        Exceptions.throwOrReport(e, a, v);
+        return;
+    }
+    if (a.isUnsubscribed()) {
+        return;
+    }
+    a.onCompleted();                          // 4
+}
+```
+
+最终会调用 Producer#request 方法。因此，这种情况下，Observable 并不会主动发送数据，而是要等 Subscriber 通过 Producer 主动来取。
+
+![](Imgs/RxJava-just.png)
+
+## 参考
+
+- [拆轮子系列：拆 RxJava](http://blog.piasy.com/2016/09/15/Understand-RxJava/)
