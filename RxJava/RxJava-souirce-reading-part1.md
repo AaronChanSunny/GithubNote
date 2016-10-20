@@ -1,10 +1,10 @@
 # RxJava 源码解读笔记（一）
 
-## 被观察者如何发射数据
+## 1 被观察者如何发射数据
 
 创建 Observable 通常有 3 种方式：just、from、create。
 
-### just
+### 1.1 just
 
 创建一个 Observable 最简单的方式，使用 `just`：
 ```
@@ -47,7 +47,7 @@ public static <T> Observable.OnSubscribe<T> onCreate(Observable.OnSubscribe<T> o
 }
 ```
 
-返回的还是 `OnSubscribe`，因此从代码逻辑看 `super(RxJavaHooks.onCreate(new JustOnSubscribe<T>(t)))` 和 `super(new JustOnSubscribe<T>(t))` 其实是等价的。这里相当于调用了 `Observable` 的构造方法：
+返回的还是同一个 `OnSubscribe`，因此从代码逻辑看 `super(RxJavaHooks.onCreate(new JustOnSubscribe<T>(t)))` 和 `super(new JustOnSubscribe<T>(t))` 其实是等价的。这里相当于调用了 `Observable` 的构造方法：
 
 ```
 // Observable.java
@@ -58,7 +58,7 @@ protected Observable(OnSubscribe<T> f) {
 
 需要明确一点，Observable 构造方法传入的是一个 OnSubscribe 接口，这是一个回调接口。只有当 Observable#subscribe 时，OnSubscribe#call 方法才会被调用。这一点从 subscribe 部分再作详细说明。
 
-### from
+### 1.2 from
 
 当需要发送的数据项不止一个，而是一个集合，可以使用 `from` 创建 Observable：
 
@@ -89,7 +89,7 @@ public OnSubscribeFromIterable(Iterable<? extends T> iterable) {      // 2
 
 `OnSubscribeFromIterable` 是 `OnSubscribe` 的一个实现类。
 
-### create
+### 1.3 create
 
 创建 Observable 最基本的方法，create：
 
@@ -104,7 +104,7 @@ protected Observable(OnSubscribe<T> f) {
 }
 ```
 
-## 订阅被观察者
+## 2 订阅被观察者
 
  前面提到过，创建 Observable 时传入的 `OnSubscribe` 接口是一个回调接口。那么，这个什么时候会调用这个回调接口呢？答案是 Observable#subscribe，即 Observable 被订阅的时候。
  
@@ -206,13 +206,13 @@ public void onCompleted() {
 
 ![](Imgs/RxJava-subscribe.png)
 
-## Backpressure
+## 3 Backpressure
 
 考虑这么一种情况，Observable 数据发的太快，Subscriber 处理不过来，应该怎么办？这就是 Rxjava 引入 Backpressure 的原因。
 
 > 在 RxJava 1.x 中，数据都是从 Observable push 到 Subscriber 的，但要是 Observable 发得太快，Subscriber 处理不过来，该怎么办？一种办法是，把数据保存起来，但这显然可能导致内存耗尽；另一种办法是，多余的数据来了之后就丢掉，至于丢掉和保留的策略可以按需制定；还有一种办法就是让 Subscriber 向 Observable 主动请求数据，Subscriber 不请求，Observable 就不发出数据。它俩相互协调，避免出现过多的数据，而协调的桥梁，就是 Producer。
 
-### 再看 just 操作符
+### 3.1 再看 just 操作符
 
 通过前面分析可以知道，使用 just 创建 Observable，传入的是一个 JustOnSubscribe：
 
@@ -314,6 +314,6 @@ public void request(long n) {
 
 ![](Imgs/RxJava-just.png)
 
-## 参考
+## 4 参考
 
 - [拆轮子系列：拆 RxJava](http://blog.piasy.com/2016/09/15/Understand-RxJava/)
