@@ -212,6 +212,8 @@ public void onCompleted() {
 
 > 在 RxJava 1.x 中，数据都是从 Observable push 到 Subscriber 的，但要是 Observable 发得太快，Subscriber 处理不过来，该怎么办？一种办法是，把数据保存起来，但这显然可能导致内存耗尽；另一种办法是，多余的数据来了之后就丢掉，至于丢掉和保留的策略可以按需制定；还有一种办法就是让 Subscriber 向 Observable 主动请求数据，Subscriber 不请求，Observable 就不发出数据。它俩相互协调，避免出现过多的数据，而协调的桥梁，就是 Producer。
 
+有关 Backpressure，可参考 StackOverflow 的一个回答 [StackOverflow Backpressure](http://stackoverflow.com/documentation/rx-java/2341/backpressure#t=201610200300407772866)。
+
 ### 3.1 再看 just 操作符
 
 通过前面分析可以知道，使用 just 创建 Observable，传入的是一个 JustOnSubscribe：
