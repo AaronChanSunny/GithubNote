@@ -6,4 +6,4 @@
 
 - [数据的发射与接收](RxJava-source-reading-part1.md)
 - [如何加工数据](RxJava-source-reading-part2.md)
-- 调度的原理
+- [调度的原理](RxJava-source-reading-part3.md)
